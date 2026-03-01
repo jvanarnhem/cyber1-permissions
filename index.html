@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IAM Simulator - Apex Solutions</title>
+    <style>
+        :root { --bg: #f4f7f6; --primary: #2c3e50; --secondary: #18bc9c; --danger: #e74c3c; --text: #333; --panel: #fff; }
+        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: var(--bg); color: var(--text); margin: 0; padding: 0; }
+        header { background-color: var(--primary); color: white; padding: 20px; text-align: center; }
+        .container { max-width: 1000px; margin: 20px auto; }
+        
+        /* Tabs */
+        .tabs { display: flex; cursor: pointer; background: #ddd; border-radius: 5px 5px 0 0; overflow: hidden; }
+        .tab { flex: 1; padding: 15px; text-align: center; font-weight: bold; color: var(--primary); transition: 0.3s; border-right: 1px solid #ccc; }
+        .tab:last-child { border-right: none; }
+        .tab.active { background: var(--panel); border-bottom: 3px solid var(--secondary); }
+        .tab:hover:not(.active) { background: #eee; }
+        
+        /* Panels */
+        .panel { background: var(--panel); padding: 30px; display: none; border-radius: 0 0 5px 5px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .panel.active { display: block; }
+        
+        h2 { color: var(--primary); margin-top: 0; border-bottom: 2px solid var(--secondary); padding-bottom: 10px; }
+        .alert { background: #fff3cd; color: #856404; padding: 15px; border-left: 5px solid #ffeeba; margin-bottom: 20px; }
+        
+        /* User Assignment */
+        .user-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #eee; }
+        select { padding: 8px; font-size: 14px; border: 1px solid #ccc; border-radius: 4px; }
+        
+        /* ACL Grid */
+        .folder-section { margin-bottom: 30px; border: 1px solid #ddd; border-radius: 5px; overflow: hidden; }
+        .folder-header { background: var(--primary); color: white; padding: 10px 15px; font-weight: bold; }
+        .acl-table { width: 100%; border-collapse: collapse; }
+        .acl-table th, .acl-table td { padding: 10px; text-align: center; border-bottom: 1px solid #eee; }
+        .acl-table th { background: #f9f9f9; font-size: 13px; }
+        .acl-table td:first-child { text-align: left; font-weight: bold; }
+        
+        /* Checkboxes */
+        input[type="checkbox"] { transform: scale(1.2); cursor: pointer; }
+        .allow-cb { accent-color: var(--secondary); }
+        .deny-cb { accent-color: var(--danger); }
+        
+        button { background: var(--secondary); color: white; border: none; padding: 12px 25px; font-size: 16px; font-weight: bold; border-radius: 5px; cursor: pointer; transition: 0.3s; display: block; width: 100%; margin-top: 20px; }
+        button:hover { background: #128f76; }
+        
+        /* Evaluation Results */
+        #results { margin-top: 20px; }
+        .pass { color: var(--secondary); font-weight: bold; }
+        .fail { color: var(--danger); font-weight: bold; }
+        .feedback-item { background: #f8f9fa; padding: 15px; border-left: 4px solid #ccc; margin-bottom: 10px; }
+        .feedback-item.fail-border { border-color: var(--danger); }
+        .feedback-item.pass-border { border-color: var(--secondary); }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>Apex Solutions: Access Control Tabletop</h1>
+    <p>Identity and Access Management (IAM) Simulator</p>
+</header>
+
+<div class="container">
+    <div class="tabs">
+        <div class="tab active" onclick="switchTab(0)">1. Briefing</div>
+        <div class="tab" onclick="switchTab(1)">2. Users & Groups</div>
+        <div class="tab" onclick="switchTab(2)">3. Folder ACLs</div>
+        <div class="tab" onclick="switchTab(3)">4. Evaluation</div>
+    </div>
+
+    <div class="panel active" id="tab0">
+        <h2>Incident Response Briefing</h2>
+        <div class="alert">
+            <strong>ATTN SECURITY ARCHITECTS:</strong> You have been hired to fix the broken permissions at Apex Solutions. Apply the <em>Principle of Least Privilege (PoLP)</em>. Give users exactly what they need to do their jobs, and absolutely nothing more.
+        </div>
+        <p><strong>The Golden Rule of Windows NTFS:</strong> Explicit "Deny" permissions will ALWAYS override "Allow" permissions.</p>
+        <h3>The Employees:</h3>
+        <ul>
+            <li><strong>Alice:</strong> The CEO. She needs to read financials, but shouldn't be modifying IT systems or HR records.</li>
+            <li><strong>Bob:</strong> HR Director. Handles payroll and sensitive employee data.</li>
+            <li><strong>Charlie:</strong> Lead Developer. Writes the code for the company's main software product.</li>
+            <li><strong>Dave:</strong> IT Administrator. Keeps the servers running and manages backups.</li>
+            <li><strong>Eve:</strong> Marketing Intern. Creates social media posts. Should have very restricted access.</li>
+        </ul>
+        <h3>The Folders:</h3>
+        <ul>
+            <li><code>C:\Shares\Public</code> - For company-wide memos and casual sharing.</li>
+            <li><code>C:\Shares\HR_Records</code> - Highly sensitive salaries and write-ups.</li>
+            <li><code>C:\Shares\SourceCode</code> - The company's proprietary software code.</li>
+        </ul>
+        <button onclick="switchTab(1)">Acknowledge Briefing</button>
+    </div>
+
+    <div class="panel" id="tab1">
+        <h2>Assign Users to Security Groups</h2>
+        <p>Map each employee to their correct security group. (In a real Windows environment, applying permissions to Groups is much more efficient than applying them to individual Users).</p>
+        
+        <div id="user-assignments">
+            </div>
+        <button onclick="switchTab(2)">Proceed to ACL Configuration</button>
+    </div>
+
+    <div class="panel" id="tab2">
+        <h2>Configure Access Control Lists (ACL)</h2>
+        <p>Set the NTFS permissions for each group on the network shares.</p>
+        
+        <div id="acl-forms">
+            </div>
+        <button onclick="switchTab(3); runEvaluation();">Submit & Evaluate Security Matrix</button>
+    </div>
+
+    <div class="panel" id="tab3">
+        <h2>Security Matrix Evaluation</h2>
+        <p id="eval-intro">Analyzing effective permissions based on your configurations...</p>
+        <div id="results"></div>
+    </div>
+</div>
+
+<script>
+    // --- DATA STRUCTURES ---
+    const users = ["Alice (CEO)", "Bob (HR Director)", "Charlie (Lead Dev)", "Dave (IT Admin)", "Eve (Intern)"];
+    const groups = ["Executives", "Human Resources", "Engineering", "IT Admins", "Interns", "Everyone (Domain Users)"];
+    
+    const folders = [
+        { id: "public", name: "C:\\Shares\\Public" },
+        { id: "hr", name: "C:\\Shares\\HR_Records" },
+        { id: "code", name: "C:\\Shares\\SourceCode" }
+    ];
+
+    const permissions = ["Read", "Read/Exec", "Write", "Modify", "Full Control"];
+
+    // --- INITIALIZATION ---
+    function init() {
+        // Build User Assignment UI
+        const userDiv = document.getElementById('user-assignments');
+        users.forEach((user, i) => {
+            let options = groups.map(g => `<option value="${g}">${g}</option>`).join('');
+            userDiv.innerHTML += `
+                <div class="user-row">
+                    <strong>${user}</strong>
+                    <select id="user-${i}">${options}</select>
+                </div>
+            `;
+        });
+
+        // Build ACL UI
+        const aclDiv = document.getElementById('acl-forms');
+        folders.forEach(folder => {
+            let rows = groups.map((group, gIdx) => {
+                let cbs = permissions.map((perm, pIdx) => `
+                    <td>
+                        <input type="checkbox" class="allow-cb" data-f="${folder.id}" data-g="${group}" data-p="${perm}" data-type="allow">
+                    </td>
+                    <td style="border-right: 2px solid #ddd;">
+                        <input type="checkbox" class="deny-cb" data-f="${folder.id}" data-g="${group}" data-p="${perm}" data-type="deny">
+                    </td>
+                `).join('');
+                
+                return `<tr><td>${group}</td>${cbs}</tr>`;
+            }).join('');
+
+            let ths = permissions.map(p => `<th colspan="2">${p}<br><small><span style="color:#18bc9c">A</span> | <span style="color:#e74c3c">D</span></small></th>`).join('');
+
+            aclDiv.innerHTML += `
+                <div class="folder-section">
+                    <div class="folder-header">${folder.name}</div>
+                    <table class="acl-table">
+                        <thead><tr><th>Group</th>${ths}</tr></thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                </div>
+            `;
+        });
+    }
+
+    // --- UI NAVIGATION ---
+    function switchTab(index) {
+        document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', i === index));
+        document.querySelectorAll('.panel').forEach((p, i) => p.classList.toggle('active', i === index));
+    }
+
+    // --- EVALUATION LOGIC ---
+    function hasPerm(folderId, groupName, permName) {
+        // Check Deny first (Deny overrides Allow)
+        const deny = document.querySelector(`input[data-f="${folderId}"][data-g="${groupName}"][data-p="${permName}"][data-type="deny"]`).checked;
+        if (deny) return false;
+        
+        // Check Allow
+        const allow = document.querySelector(`input[data-f="${folderId}"][data-g="${groupName}"][data-p="${permName}"][data-type="allow"]`).checked;
+        return allow;
+    }
+
+    function checkUserAssignedTo(userIndex, groupName) {
+        return document.getElementById(`user-${userIndex}`).value === groupName;
+    }
+
+    function runEvaluation() {
+        const resDiv = document.getElementById('results');
+        resDiv.innerHTML = "";
+        let score = 0;
+        let totalChecks = 5;
+
+        function addFeedback(passed, message, detail) {
+            if (passed) score++;
+            const status = passed ? '<span class="pass">SECURE</span>' : '<span class="fail">VULNERABILITY DETECTED</span>';
+            const border = passed ? 'pass-border' : 'fail-border';
+            resDiv.innerHTML += `
+                <div class="feedback-item ${border}">
+                    <div>${status}: ${message}</div>
+                    <div style="font-size: 13px; color: #666; margin-top: 5px;">${detail}</div>
+                </div>
+            `;
+        }
+
+        // 1. Check HR Privacy
+        const hrGroupSetCorrectly = checkUserAssignedTo(1, "Human Resources"); // Bob
+        const execsCanReadHR = hasPerm('hr', 'Executives', 'Read') || hasPerm('hr', 'Everyone (Domain Users)', 'Read');
+        const hrCanWriteHR = hasPerm('hr', 'Human Resources', 'Write') || hasPerm('hr', 'Human Resources', 'Modify');
+        const engCanSeeHR = hasPerm('hr', 'Engineering', 'Read') || hasPerm('hr', 'Everyone (Domain Users)', 'Read');
+        
+        if (engCanSeeHR) {
+            addFeedback(false, "Engineers can read HR Records.", "Charlie found out what Bob gets paid. You applied 'Read' to Engineering or 'Everyone' on the HR share.");
+        } else if (!hrCanWriteHR) {
+            addFeedback(false, "HR cannot modify HR Records.", "Bob called the Helpdesk because he can't save the new payroll files. Ensure HR has Write/Modify on their own folder.");
+        } else {
+            addFeedback(true, "HR Records are correctly siloed.", "Only authorized personnel have access to sensitive data.");
+        }
+
+        // 2. Check Intern Restrictions
+        const internAssigned = checkUserAssignedTo(4, "Interns"); // Eve
+        const internCanWriteCode = hasPerm('code', 'Interns', 'Write') || hasPerm('code', 'Everyone (Domain Users)', 'Write');
+        
+        if (!internAssigned) {
+            addFeedback(false, "User Assignment Error", "Eve (Intern) was put in the wrong security group.");
+        } else if (internCanWriteCode) {
+            addFeedback(false, "Intern corrupted Source Code!", "Eve accidentally deleted a critical algorithm. Interns should never have Write access to SourceCode.");
+        } else {
+            addFeedback(true, "Source Code protected from Interns.", "Eve's access was appropriately restricted.");
+        }
+
+        // 3. Principle of Least Privilege: IT Admin
+        const itAdminCodeFull = hasPerm('code', 'IT Admins', 'Full Control');
+        const engCodeFull = hasPerm('code', 'Engineering', 'Full Control');
+        
+        if (engCodeFull) {
+             addFeedback(false, "Engineers have Full Control over Source Code.", "Charlie accidentally changed the ownership permissions and locked everyone else out. Engineers only need 'Modify', not 'Full Control'. IT should retain Full Control.");
+        } else if (!itAdminCodeFull) {
+             addFeedback(false, "IT Admins lack Full Control.", "Dave cannot manage backups for the Source Code folder. IT needs Full Control to manage ACLs and ownership.");
+        } else {
+             addFeedback(true, "IT Administration permissions are optimal.", "IT retains control without giving standard users the ability to break the ACL.");
+        }
+
+        // 4. Public Share Accessibility
+        const everyonePublicRead = hasPerm('public', 'Everyone (Domain Users)', 'Read');
+        const everyonePublicDeny = document.querySelector(`input[data-f="public"][data-g="Everyone (Domain Users)"][data-p="Read"][data-type="deny"]`).checked;
+        
+        if (everyonePublicDeny) {
+            addFeedback(false, "Public folder is broken due to Deny.", "You explicitly Denied 'Everyone' read access. Because Deny overrides Allow, NO ONE can read the public memos!");
+        } else if (!everyonePublicRead) {
+            addFeedback(false, "Public folder is inaccessible.", "You forgot to Allow 'Everyone' to read the Public share.");
+        } else {
+            addFeedback(true, "Public share is functioning normally.", "Information is flowing freely as intended.");
+        }
+
+        // 5. CEO Access
+        const ceoAssigned = checkUserAssignedTo(0, "Executives");
+        if (!ceoAssigned) {
+            addFeedback(false, "User Assignment Error", "Alice (CEO) was put in the wrong security group.");
+        } else {
+            addFeedback(true, "Executive access correctly assigned.", "Alice is in the right group to receive top-level permissions.");
+        }
+
+        document.getElementById('eval-intro').innerHTML = `<strong>Final Score: ${score}/${totalChecks} Systems Secured.</strong><br> Take a screenshot of this page for your instructor.`;
+    }
+
+    window.onload = init;
+</script>
+</body>
+</html>
