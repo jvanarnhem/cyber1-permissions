@@ -84,7 +84,7 @@
         <div class="critical-alert">
             SYSTEM STATUS: CRITICAL. The previous IT Admin was lazy. They gave the "Everyone" group "Full Control" over the entire server. You must strip these dangerous permissions and rebuild the matrix.
         </div>
-        <p>Apply the <em>Principle of Least Privilege (PoLP)</em>. Note: Permissions cascade. Checking "Modify" will automatically grant "Write" and "Read". Explicit "Deny" permissions will ALWAYS override "Allow".</p>
+        <p>Apply the <em>Principle of Least Privilege (PoLP)</em>. Note: Permissions cascade automatically. Explicit "Deny" permissions will ALWAYS override "Allow".</p>
         
         <h3>The Roster:</h3>
         <ul>
@@ -158,20 +158,15 @@
         { id: 4, name: "Eve", group: "Interns" },
         { id: 5, name: "Fiona", group: "Finance & Payroll" }
     ];
-    // Scrambled order for UI
     const scrambledOrder = [4, 1, 5, 0, 3, 2]; 
-    
     const groups = ["Select a Group...", "Executives", "Human Resources", "Engineering", "IT Admins", "Interns", "Finance & Payroll", "Everyone (Domain Users)"];
-    
     const folders = [
         { id: "public", name: "C:\\Shares\\Public" },
         { id: "hr", name: "C:\\Shares\\HR_Records" },
         { id: "finance", name: "C:\\Shares\\Financial_Records" },
         { id: "code", name: "C:\\Shares\\SourceCode" }
     ];
-
     const permissions = ["Read", "Read/Exec", "Write", "Modify", "Full Control"];
-
     const quizData = [
         { q: "1. What is the 'Principle of Least Privilege' (PoLP)?", opts: ["Giving users the lowest tier of hardware available.", "Giving users only the minimum access necessary to perform their job.", "Giving all users Read access to everything for transparency."], ans: 1 },
         { q: "2. In Windows NTFS, what happens if a user is explicitly 'Denied' Read access, but belongs to a group that is 'Allowed' Read access?", opts: ["Allow overrides Deny.", "Deny always overrides Allow.", "The system asks the user for a password."], ans: 1 },
@@ -214,17 +209,16 @@
             qDiv.innerHTML += `<div class="question-block" id="qb-${qIdx}"><h4>${q.q}</h4>${opts}</div>`;
         });
 
-        // Add Event Listeners for Cascading Logic
         document.querySelectorAll('.perm-cb').forEach(cb => cb.addEventListener('change', handleCascade));
 
-        // INITIALIZE BROKEN STATE: Everyone has Full Control
+        // INITIALIZE BROKEN STATE
         folders.forEach(folder => {
             const badCb = document.querySelector(`input[data-f="${folder.id}"][data-g="Everyone (Domain Users)"][data-p="Full Control"][data-type="allow"]`);
             if(badCb) { badCb.checked = true; badCb.dispatchEvent(new Event('change')); }
         });
     }
 
-    // --- CASCADING LOGIC ---
+    // --- CORRECTED CASCADING LOGIC ---
     function handleCascade(e) {
         const cb = e.target;
         const type = cb.dataset.type;
@@ -235,23 +229,37 @@
 
         const setCb = (perm, state) => {
             const el = document.querySelector(`input[data-f="${f}"][data-g="${g}"][data-p="${perm}"][data-type="${type}"]`);
-            if (el) el.checked = state;
+            if (el && el.checked !== state) {
+                el.checked = state;
+            }
         };
 
-        if (checked) {
-            // Cascade Down (Checking higher grants lower)
-            if (p === 'Full Control') { setCb('Modify', true); setCb('Write', true); setCb('Read/Exec', true); setCb('Read', true); }
-            if (p === 'Modify') { setCb('Write', true); setCb('Read/Exec', true); setCb('Read', true); }
-            if (p === 'Write' || p === 'Read/Exec') { setCb('Read', true); }
-        } else {
-            // Cascade Up (Unchecking lower revokes higher)
-            if (p === 'Read') { setCb('Read/Exec', false); setCb('Write', false); setCb('Modify', false); setCb('Full Control', false); }
-            if (p === 'Write' || p === 'Read/Exec') { setCb('Modify', false); setCb('Full Control', false); }
-            if (p === 'Modify') { setCb('Full Control', false); }
+        if (type === 'allow') {
+            // ALLOW cascades DOWN when checked, UP when unchecked
+            if (checked) {
+                if (p === 'Full Control') { setCb('Modify', true); setCb('Write', true); setCb('Read/Exec', true); setCb('Read', true); }
+                if (p === 'Modify') { setCb('Write', true); setCb('Read/Exec', true); setCb('Read', true); }
+                if (p === 'Write' || p === 'Read/Exec') { setCb('Read', true); }
+            } else {
+                if (p === 'Read') { setCb('Read/Exec', false); setCb('Write', false); setCb('Modify', false); setCb('Full Control', false); }
+                if (p === 'Write' || p === 'Read/Exec') { setCb('Modify', false); setCb('Full Control', false); }
+                if (p === 'Modify') { setCb('Full Control', false); }
+            }
+        } else if (type === 'deny') {
+            // DENY cascades UP when checked, DOWN when unchecked
+            if (checked) {
+                if (p === 'Read') { setCb('Read/Exec', true); setCb('Write', true); setCb('Modify', true); setCb('Full Control', true); }
+                if (p === 'Write' || p === 'Read/Exec') { setCb('Modify', true); setCb('Full Control', true); }
+                if (p === 'Modify') { setCb('Full Control', true); }
+            } else {
+                if (p === 'Full Control') { setCb('Modify', false); setCb('Write', false); setCb('Read/Exec', false); setCb('Read', false); }
+                if (p === 'Modify') { setCb('Write', false); setCb('Read/Exec', false); setCb('Read', false); }
+                if (p === 'Write' || p === 'Read/Exec') { setCb('Read', false); }
+            }
         }
     }
 
-    // --- NAVIGATION ---
+    // --- NAVIGATION & EVALUATION ---
     function switchTab(index, isCheck = false) {
         if (isCheck && index === 4 && !systemSecured) return;
         if (isCheck && index === 5 && !quizPassed) return;
@@ -259,7 +267,6 @@
         document.querySelectorAll('.panel').forEach((p, i) => p.classList.toggle('active', i === index));
     }
 
-    // --- EVALUATION ---
     function hasPerm(folderId, groupName, permName) {
         const deny = document.querySelector(`input[data-f="${folderId}"][data-g="${groupName}"][data-p="${permName}"][data-type="deny"]`).checked;
         if (deny) return false;
@@ -278,20 +285,17 @@
             resDiv.innerHTML += `<div class="feedback-item ${passed ? 'pass-border' : 'fail-border'}"><div>${status}: ${msg}</div><div style="font-size: 13px; color: #666; margin-top: 5px;">${detail}</div></div>`;
         }
 
-        // 0. User Assignment
         let usersCorrect = true;
         rawUsers.forEach(u => { if (document.getElementById(`user-${u.id}`).value !== u.group) usersCorrect = false; });
         if (usersCorrect) addFeedback(true, "Users mapped correctly.", "Identity management is accurate.");
         else addFeedback(false, "User Assignment Error.", "Look closely at the briefing. Someone is in the wrong department.");
 
-        // 1. HR Privacy
         const hrCanWrite = hasPerm('hr', 'Human Resources', 'Write') || hasPerm('hr', 'Human Resources', 'Modify');
         const finCanSeeHR = hasPerm('hr', 'Finance & Payroll', 'Read') || hasPerm('hr', 'Everyone (Domain Users)', 'Read');
         if (finCanSeeHR) addFeedback(false, "Finance can read HR Records.", "Fiona should process payroll, not read employee write-ups. Remove 'Everyone' or 'Finance' access from HR.");
         else if (!hrCanWrite) addFeedback(false, "HR cannot modify HR Records.", "Bob needs Write/Modify access on his own folder.");
         else addFeedback(true, "HR Records are siloed.", "Only HR can access HR records.");
 
-        // 2. Financial Records
         const execsCanReadFin = hasPerm('finance', 'Executives', 'Read');
         const hrCanSeeFin = hasPerm('finance', 'Human Resources', 'Read') || hasPerm('finance', 'Everyone (Domain Users)', 'Read');
         const finCanWriteFin = hasPerm('finance', 'Finance & Payroll', 'Write') || hasPerm('finance', 'Finance & Payroll', 'Modify');
@@ -300,14 +304,12 @@
         else if (!finCanWriteFin) addFeedback(false, "Payroll cannot modify ledgers.", "Fiona needs Write/Modify access to Financials.");
         else addFeedback(true, "Financials are secure and accessible.", "Finance and Executives have proper access levels.");
 
-        // 3. Admin PoLP & Dev
         const devFull = hasPerm('code', 'Engineering', 'Full Control');
         const adminFull = hasPerm('code', 'IT Admins', 'Full Control');
         if (devFull) addFeedback(false, "Engineers have Full Control.", "Charlie only needs Modify. Full Control lets him alter security permissions.");
         else if (!adminFull) addFeedback(false, "IT Admins lack Full Control.", "Dave needs Full Control to manage backups and permissions.");
         else addFeedback(true, "IT Admin permissions optimal.", "IT retains control without giving standard users ACL rights.");
 
-        // 4. Public Share
         const evPubRead = hasPerm('public', 'Everyone (Domain Users)', 'Read');
         const evPubDeny = document.querySelector(`input[data-f="public"][data-g="Everyone (Domain Users)"][data-p="Read"][data-type="deny"]`).checked;
         if (evPubDeny) addFeedback(false, "Public folder broken via Deny.", "You explicitly Denied 'Everyone' read access. No one can read memos.");
@@ -328,7 +330,6 @@
         }
     }
 
-    // --- QUIZ ---
     function gradeQuiz() {
         let score = 0;
         quizData.forEach((q, idx) => {
